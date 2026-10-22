@@ -1,1 +1,1567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Bloqueia totalmente motores de busca (Google, Bing, etc.) de indexar o site -->
+    <meta name="robots" content="noindex, nofollow">
+    <title>Student Progress Tracker</title>
+    <!-- Favicon com Emoji de Mão a Escrever -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✍️</text></svg>">
+    
+    <!-- Google Fonts: Oleo Script (Fallback para Harlow Solid no Mobile) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Oleo+Script:wght@400;700&display=swap" rel="stylesheet">
 
+    <!-- Firebase SDKs (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        @font-face {
+            font-family: 'Harlow Solid';
+            src: local('Harlow Solid'), local('Harlow Solid Italic');
+        }
+
+        :root {
+            --brand-purple-dark: #502064;
+            --brand-red: #6B0F1A;
+            --brand-dark: #1A1A1A;
+            --brand-purple-mid: #6B3A7E;
+            --brand-lavender: #D8B4D9;
+            --brand-pink: #F48FB1;
+            
+            /* Paleta Nude / Rose Elegante */
+            --bg-main: #F4EBEB;
+            --card-bg: #FFFDFD;
+            --input-bg: #F9F2F2;
+            --text-dark: #1A1A1A;
+            --border-color: #E2D2D2;
+        }
+
+        body {
+            font-family: 'Century Gothic', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 30px 20px;
+            min-height: 100vh;
+        }
+
+        h1, h2, h3, .accordion-header, .side-card h3, .session-accordion-header {
+            font-family: 'Harlow Solid', 'Harlow Solid Italic', 'Oleo Script', cursive;
+        }
+
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 30px;
+            position: relative;
+        }
+
+        .content-area {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .sidebar-area {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        header h1 {
+            font-size: 3rem;
+            margin-bottom: 5px;
+            margin-top: 0;
+            text-align: center;
+            color: var(--brand-purple-dark);
+            font-weight: normal;
+        }
+
+        .toolbar-wrapper {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .toolbar-toggle-btn {
+            background: var(--brand-purple-dark);
+            color: #FFFFFF;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            font-family: 'Century Gothic', sans-serif;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: opacity 0.2s, transform 0.2s;
+            opacity: 0.85;
+        }
+
+        .toolbar-toggle-btn:hover {
+            opacity: 1;
+            transform: scale(1.03);
+        }
+
+        .format-toolbar {
+            display: none;
+            background: rgba(255, 253, 253, 0.95);
+            backdrop-filter: blur(8px);
+            padding: 6px 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+            max-width: 480px;
+        }
+
+        .format-toolbar.open {
+            display: flex;
+        }
+
+        .format-btn {
+            background: transparent;
+            border: none;
+            color: var(--brand-purple-dark);
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Century Gothic', sans-serif;
+            font-weight: bold;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+
+        .format-btn:hover {
+            background: var(--bg-main);
+            color: var(--brand-red);
+        }
+
+        .color-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            display: inline-block;
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+
+        .divider {
+            width: 1px;
+            height: 16px;
+            background-color: var(--border-color);
+            margin: 0 2px;
+        }
+
+        .student-header {
+            background: var(--card-bg);
+            padding: 20px 24px;
+            border-radius: 14px;
+            border: 2px solid var(--border-color);
+            border-left: 5px solid var(--brand-red);
+            box-shadow: 0 4px 12px rgba(80, 32, 100, 0.04);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .student-header .full-width {
+            grid-column: span 2;
+        }
+
+        .clean-field {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+
+        .clean-field label {
+            font-weight: bold;
+            color: var(--brand-purple-dark);
+            white-space: nowrap;
+            font-family: 'Century Gothic', sans-serif;
+        }
+
+        .clean-field input, .clean-field .link-container {
+            border: none;
+            border-bottom: 2px solid var(--border-color);
+            background: transparent;
+            font-family: 'Century Gothic', sans-serif;
+            font-size: 0.9rem;
+            color: var(--brand-dark);
+            width: 100%;
+            outline: none;
+            padding: 2px 2px;
+            transition: border-color 0.3s;
+        }
+
+        .clean-field input:focus {
+            border-bottom-color: var(--brand-red);
+        }
+
+        .link-container {
+            display: inline-block;
+            cursor: text;
+            min-height: 22px;
+        }
+
+        .link-container a {
+            color: var(--brand-purple-mid);
+            font-weight: 600;
+            text-decoration: none;
+            border-bottom: 1px dotted var(--brand-purple-mid);
+        }
+
+        .link-container a:hover {
+            color: var(--brand-red);
+            border-bottom-color: var(--brand-red);
+        }
+
+        .accordion {
+            background: var(--card-bg);
+            border-radius: 14px;
+            border: 2px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(80, 32, 100, 0.04);
+            overflow: hidden;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .accordion-header {
+            background-color: var(--brand-purple-dark);
+            color: #FFFFFF;
+            padding: 14px 24px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.8rem;
+            user-select: none;
+            transition: background 0.3s;
+        }
+
+        .accordion-header:hover {
+            background-color: var(--brand-purple-mid);
+        }
+
+        .accordion-header::after {
+            content: '⌄';
+            font-size: 1.3rem;
+            font-family: sans-serif;
+            transition: transform 0.35s ease;
+            color: #FFFFFF;
+        }
+
+        .accordion.active .accordion-header::after {
+            transform: rotate(180deg);
+        }
+
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0, 1, 0, 1);
+            padding: 0 24px;
+            background: var(--card-bg);
+        }
+
+        .accordion.active .accordion-content {
+            max-height: 5000px;
+            transition: max-height 0.6s ease-in;
+            padding: 20px 24px 24px 24px;
+        }
+
+        .tabs-header {
+            display: flex;
+            gap: 6px;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 16px;
+            overflow-x: auto;
+            padding-bottom: 2px;
+            align-items: center;
+        }
+
+        .tab-item {
+            display: flex;
+            align-items: center;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            border-radius: 6px 6px 0 0;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            padding: 6px 10px 6px 14px;
+            cursor: pointer;
+            font-family: 'Century Gothic', sans-serif;
+            font-weight: bold;
+            font-size: 0.85rem;
+            color: var(--brand-purple-dark);
+            white-space: nowrap;
+        }
+
+        .tab-item.active {
+            background: var(--brand-purple-dark);
+            border-color: var(--brand-purple-dark);
+        }
+
+        .tab-item.active .tab-btn {
+            color: #FFFFFF;
+        }
+
+        .delete-tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--brand-red);
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0 8px 0 2px;
+            transition: opacity 0.2s;
+        }
+
+        .tab-item.active .delete-tab-btn {
+            color: #FFB4B4;
+        }
+
+        .delete-tab-btn:hover {
+            opacity: 0.7;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .add-tab-btn {
+            background: transparent;
+            border: 1px dashed var(--brand-purple-dark);
+            color: var(--brand-purple-dark);
+            padding: 6px 12px;
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            font-family: 'Century Gothic', sans-serif;
+            font-weight: bold;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .add-tab-btn:hover {
+            background: var(--brand-purple-dark);
+            color: #FFFFFF;
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 5px;
+            min-width: 500px;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 10px 12px;
+            text-align: left;
+            vertical-align: top;
+            font-family: 'Century Gothic', sans-serif;
+            font-size: 0.88rem;
+        }
+
+        th {
+            background-color: var(--brand-red);
+            color: #FFFFFF;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        td[contenteditable="true"] {
+            outline: none;
+            background: var(--input-bg);
+            transition: background 0.2s;
+            color: var(--brand-dark);
+            min-height: 35px;
+        }
+
+        td[contenteditable="true"]:focus {
+            background: #FFFFFF;
+            box-shadow: inset 0 0 0 2px var(--brand-red);
+        }
+
+        .cards-container {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-top: 5px;
+        }
+
+        .session-card-accordion {
+            border: 1px solid var(--border-color);
+            border-left: 5px solid var(--brand-purple-dark);
+            border-radius: 10px;
+            background: var(--card-bg);
+            overflow: hidden;
+        }
+
+        .session-accordion-header {
+            background: var(--input-bg);
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.2rem;
+            color: var(--brand-purple-dark);
+            user-select: none;
+        }
+
+        .session-accordion-header:hover {
+            background: #F4E8E8;
+        }
+
+        .session-accordion-header::after {
+            content: '⌄';
+            font-size: 1rem;
+            font-family: sans-serif;
+            transition: transform 0.3s;
+        }
+
+        .session-card-accordion.open .session-accordion-header::after {
+            transform: rotate(180deg);
+        }
+
+        .session-accordion-body {
+            display: none;
+            padding: 16px;
+            flex-direction: column;
+            gap: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .session-card-accordion.open .session-accordion-body {
+            display: flex;
+        }
+
+        .session-accordion-body label {
+            font-weight: bold;
+            font-size: 0.85rem;
+            color: var(--brand-purple-dark);
+            font-family: 'Century Gothic', sans-serif;
+        }
+
+        .session-accordion-body input {
+            width: 100%;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-family: 'Century Gothic', sans-serif;
+            font-size: 0.88rem;
+            background: #FFFFFF;
+            color: var(--brand-dark);
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        .session-accordion-body input:focus {
+            border-color: var(--brand-red);
+        }
+
+        .btn {
+            background-color: var(--brand-red);
+            color: #FFFFFF;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Century Gothic', sans-serif;
+            font-weight: bold;
+            font-size: 0.88rem;
+            transition: background 0.2s;
+            align-self: flex-start;
+        }
+
+        .btn:hover {
+            background-color: var(--brand-purple-dark);
+        }
+
+        .btn-delete {
+            background-color: transparent;
+            color: var(--brand-red);
+            border: 1px solid var(--brand-red);
+            padding: 5px 12px;
+            font-size: 0.8rem;
+            align-self: flex-end;
+            margin-top: 5px;
+        }
+
+        .btn-delete:hover {
+            background-color: var(--brand-red);
+            color: #FFFFFF;
+        }
+
+        .side-card {
+            background-color: var(--card-bg);
+            border: 2px solid var(--border-color);
+            padding: 22px;
+            border-radius: 14px;
+            box-shadow: 0 6px 18px rgba(80, 32, 100, 0.06);
+        }
+
+        .post-it {
+            background-color: var(--brand-pink);
+            border: none;
+            box-shadow: 0 8px 20px rgba(80, 32, 100, 0.1);
+        }
+
+        .side-card-header {
+            margin-top: 0;
+            font-size: 1.8rem;
+            color: var(--brand-purple-dark);
+            border-bottom: 2px solid rgba(80, 32, 100, 0.15);
+            padding-bottom: 10px;
+            margin-bottom: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .side-card-header.clickable {
+            cursor: pointer;
+        }
+
+        .side-card-header .toggle-arrow {
+            font-size: 1.2rem;
+            font-family: sans-serif;
+            transition: transform 0.3s;
+        }
+
+        .side-card.collapsed .side-card-header .toggle-arrow {
+            transform: rotate(-90deg);
+        }
+
+        .side-card.collapsed .side-card-body {
+            display: none;
+        }
+
+        .topic-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 0.88rem;
+            font-family: 'Century Gothic', sans-serif;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 6px 10px;
+            border-radius: 6px;
+            transition: background 0.2s;
+            color: var(--brand-dark);
+        }
+
+        .topic-item:hover {
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .topic-content {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            overflow: hidden;
+            word-break: break-word;
+        }
+
+        .topic-item input[type="checkbox"] {
+            accent-color: var(--brand-red);
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .topic-item.completed span {
+            text-decoration: line-through;
+            color: rgba(26, 26, 26, 0.4);
+        }
+
+        .delete-topic-btn {
+            background: transparent;
+            border: none;
+            color: var(--brand-red);
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0 4px;
+            line-height: 1;
+            border-radius: 4px;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+
+        .delete-topic-btn:hover {
+            background: rgba(107, 15, 26, 0.15);
+        }
+
+        .completed-section-toggle {
+            margin-top: 16px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: var(--brand-purple-dark);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 8px;
+            border-top: 1px dashed rgba(80, 32, 100, 0.25);
+        }
+
+        .completed-topics-wrapper {
+            display: none;
+            margin-top: 8px;
+        }
+
+        .completed-topics-wrapper.open {
+            display: block;
+        }
+
+        .add-topic-box {
+            display: flex;
+            gap: 6px;
+            margin-top: 16px;
+        }
+
+        .add-topic-box input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid rgba(80, 32, 100, 0.25);
+            border-radius: 6px;
+            font-family: 'Century Gothic', sans-serif;
+            background: #FFFFFF;
+            font-size: 0.88rem;
+            color: var(--brand-dark);
+            outline: none;
+        }
+
+        .placement-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+
+        .placement-item label {
+            font-weight: bold;
+            font-size: 0.82rem;
+            color: var(--brand-purple-dark);
+        }
+
+        .placement-item div[contenteditable="true"] {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px;
+            background: var(--input-bg);
+            min-height: 38px;
+            font-size: 0.85rem;
+            outline: none;
+            transition: background 0.2s;
+        }
+
+        .placement-item div[contenteditable="true"]:focus {
+            background: #FFFFFF;
+            border-color: var(--brand-red);
+        }
+
+        .sync-status {
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--brand-red);
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .empty-msg {
+            font-size: 0.8rem;
+            color: rgba(26, 26, 26, 0.5);
+            font-style: italic;
+            text-align: center;
+            padding: 8px 0;
+        }
+
+        @media (max-width: 900px) {
+            body {
+                padding: 16px 10px;
+            }
+
+            .main-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            header h1 {
+                font-size: 2.2rem;
+            }
+
+            .student-header {
+                grid-template-columns: 1fr;
+                padding: 16px;
+            }
+
+            .student-header .full-width {
+                grid-column: span 1;
+            }
+
+            .clean-field {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 4px;
+            }
+
+            .accordion-header {
+                font-size: 1.5rem;
+                padding: 12px 18px;
+            }
+
+            .accordion-content {
+                padding: 0 14px;
+            }
+
+            .accordion.active .accordion-content {
+                padding: 16px 14px 18px 14px;
+            }
+
+            .toolbar-wrapper {
+                bottom: 15px;
+                right: 15px;
+                left: 15px;
+                justify-content: flex-end;
+            }
+
+            .format-toolbar {
+                max-width: 100%;
+                justify-content: center;
+            }
+
+            .side-card {
+                padding: 16px;
+            }
+
+            .side-card-header {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-container">
+        <div class="content-area">
+            <header>
+                <h1>Student Progress Tracker</h1>
+            </header>
+
+            <div class="student-header">
+                <div class="clean-field full-width">
+                    <label>Student:</label>
+                    <input type="text" id="field-student" placeholder="Student's name">
+                </div>
+                <div class="clean-field full-width">
+                    <label>Day and time of lessons:</label>
+                    <input type="text" id="field-datetime" placeholder="e.g. Mondays and Wednesdays at 14:00">
+                </div>
+                <div class="clean-field">
+                    <label>Start date:</label>
+                    <input type="date" id="field-start">
+                </div>
+                <div class="clean-field">
+                    <label>End date:</label>
+                    <input type="date" id="field-end">
+                </div>
+                <div class="clean-field full-width">
+                    <label>Call link:</label>
+                    <div id="field-link" class="link-container" contenteditable="true" data-placeholder="Paste or type meeting link here..."></div>
+                </div>
+            </div>
+
+            <div class="accordion">
+                <div class="accordion-header" onclick="toggleAccordion(this)">4 Week Plan</div>
+                <div class="accordion-content">
+                    <div class="tabs-header" id="planTabsHeader"></div>
+                    <div id="planTabsContainer"></div>
+                </div>
+            </div>
+
+            <div class="accordion active" id="session-accordion">
+                <div class="accordion-header" onclick="toggleAccordion(this)">Session & Lesson Log</div>
+                <div class="accordion-content">
+                    <div class="tabs-header" id="sessionTabsHeader"></div>
+                    <div id="sessionTabsContainer"></div>
+                </div>
+            </div>
+
+            <div class="sync-status" id="sync-status">Loading data...</div>
+        </div>
+
+        <div class="sidebar-area">
+            <aside class="side-card post-it">
+                <h3 class="side-card-header">Suggested Topics</h3>
+                <div class="side-card-body">
+                    <div id="topics-list" style="margin-top: 12px;"></div>
+
+                    <div class="completed-section-toggle" onclick="toggleCompletedTopics()">
+                        <span>Completed Topics (<span id="completed-count">0</span>)</span>
+                        <span id="completed-arrow">⌄</span>
+                    </div>
+                    <div class="completed-topics-wrapper" id="completedTopicsWrapper">
+                        <div id="completed-topics-list"></div>
+                    </div>
+
+                    <div class="add-topic-box">
+                        <input type="text" id="new-topic-input" placeholder="New topic...">
+                        <button class="btn" onclick="addTopic()" style="padding: 8px 14px; background-color: var(--brand-purple-dark);">+</button>
+                    </div>
+                </div>
+            </aside>
+
+            <aside class="side-card" id="placementChatCard">
+                <h3 class="side-card-header clickable" onclick="togglePlacementChat()">
+                    <span>Placement Chat</span>
+                    <span class="toggle-arrow">⌄</span>
+                </h3>
+                <div class="side-card-body">
+                    <div class="placement-item">
+                        <label>Your goals:</label>
+                        <div contenteditable="true" id="chat-goals"></div>
+                    </div>
+                    <div class="placement-item">
+                        <label>You are concerned with:</label>
+                        <div contenteditable="true" id="chat-concerned"></div>
+                    </div>
+                    <div class="placement-item">
+                        <label>Your general interaction with language:</label>
+                        <div contenteditable="true" id="chat-interaction"></div>
+                    </div>
+                    <div class="placement-item">
+                        <label>What works for you:</label>
+                        <div contenteditable="true" id="chat-works"></div>
+                    </div>
+                    <div class="placement-item">
+                        <label>Teacher observations:</label>
+                        <div contenteditable="true" id="chat-observations"></div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <div class="toolbar-wrapper">
+        <div class="format-toolbar" id="formatToolbar">
+            <button class="format-btn" onclick="formatText('bold')" title="Negrito"><b>B</b></button>
+            <button class="format-btn" onclick="formatText('italic')" title="Itálico"><i>I</i></button>
+            <button class="format-btn" onclick="formatText('underline')" title="Sublinhado"><u>U</u></button>
+            <button class="format-btn" onclick="formatText('strikeThrough')" title="Riscado"><s>S</s></button>
+            
+            <div class="divider"></div>
+            
+            <button class="format-btn" onclick="toggleHighlight()" title="Highlight (Alternar)" style="background: var(--brand-pink); border-radius: 4px;">Highlight</button>
+            <button class="format-btn" onclick="setTextColor('#6B0F1A')" title="Texto Vermelho"><span class="color-dot" style="background: #6B0F1A;"></span></button>
+            <button class="format-btn" onclick="setTextColor('#502064')" title="Texto Roxo"><span class="color-dot" style="background: #502064;"></span></button>
+            <button class="format-btn" onclick="setTextColor('#1A1A1A')" title="Texto Preto (Normal)"><span class="color-dot" style="background: #1A1A1A;"></span></button>
+            
+            <div class="divider"></div>
+
+            <button class="format-btn" onclick="toggleList()" title="Bullet Point (Alternar)">• Bullet</button>
+            <button class="format-btn" onclick="toggleIndent()" title="Sub-bullet / Recuo (Alternar)">→ Sub</button>
+        </div>
+        <button class="toolbar-toggle-btn" onclick="toggleFormatToolbar()">✍️ Format</button>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCqGSUBBkQzLhG7BAHPFDhKUD9wAIN5wVg",
+            authDomain: "julianawiiraenglishlessons.firebaseapp.com",
+            projectId: "julianawiiraenglishlessons",
+            storageBucket: "julianawiiraenglishlessons.firebasestorage.app",
+            messagingSenderId: "781561866634",
+            appId: "1:781561866634:web:fab1f4d233c87ecab34073"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const docRef = db.collection("tracker").doc("studentData");
+
+        function toggleAccordion(header) {
+            const accordion = header.parentElement;
+            accordion.classList.toggle('active');
+        }
+
+        function toggleSessionAccordion(header) {
+            const card = header.parentElement;
+            card.classList.toggle('open');
+        }
+
+        function togglePlacementChat() {
+            const card = document.getElementById('placementChatCard');
+            card.classList.toggle('collapsed');
+        }
+
+        function toggleCompletedTopics() {
+            const wrapper = document.getElementById('completedTopicsWrapper');
+            const arrow = document.getElementById('completed-arrow');
+            wrapper.classList.toggle('open');
+            arrow.innerText = wrapper.classList.contains('open') ? '⌃' : '⌄';
+        }
+
+        function toggleFormatToolbar() {
+            const toolbar = document.getElementById('formatToolbar');
+            toolbar.classList.toggle('open');
+        }
+
+        function formatText(command, value = null) {
+            document.execCommand(command, false, value);
+            saveData();
+        }
+
+        function toggleHighlight() {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+            const parentElement = selection.getRangeAt(0).commonAncestorContainer.parentElement;
+            const isHighlighted = parentElement.style.backgroundColor === 'rgb(244, 143, 177)' || parentElement.style.backgroundColor === '#F48FB1';
+            
+            document.execCommand('hiliteColor', false, isHighlighted ? 'transparent' : '#F48FB1');
+            saveData();
+        }
+
+        function setTextColor(color) {
+            document.execCommand('foreColor', false, color);
+            saveData();
+        }
+
+        function toggleList() {
+            document.execCommand('insertUnorderedList', false, null);
+            saveData();
+        }
+
+        function toggleIndent() {
+            const queryState = document.queryCommandState('indent');
+            if (queryState) {
+                document.execCommand('outdent', false, null);
+            } else {
+                document.execCommand('indent', false, null);
+            }
+            saveData();
+        }
+
+        const linkDiv = document.getElementById('field-link');
+        
+        linkDiv.addEventListener('focus', () => {
+            const rawUrl = linkDiv.getAttribute('data-raw-url') || '';
+            linkDiv.innerText = rawUrl;
+        });
+
+        linkDiv.addEventListener('blur', () => {
+            const text = linkDiv.innerText.trim();
+            linkDiv.setAttribute('data-raw-url', text);
+            if (text !== '') {
+                let formattedUrl = text;
+                if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+                    formattedUrl = 'https://' + formattedUrl;
+                }
+                linkDiv.innerHTML = `<a href="${formattedUrl}" target="_blank">${text}</a>`;
+            } else {
+                linkDiv.innerHTML = `<span style="color: #999; font-style: italic;">Paste or type meeting link here...</span>`;
+            }
+            saveData();
+        });
+
+        let saveTimeout = null;
+
+        function saveData() {
+            document.getElementById('sync-status').innerText = "Saving changes...";
+            
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                const rawLink = linkDiv.getAttribute('data-raw-url') || '';
+                
+                const data = {
+                    student: document.getElementById('field-student').value || '',
+                    datetime: document.getElementById('field-datetime').value || '',
+                    start: document.getElementById('field-start').value || '',
+                    end: document.getElementById('field-end').value || '',
+                    link: rawLink,
+                    
+                    chatGoals: document.getElementById('chat-goals').innerHTML || '',
+                    chatConcerned: document.getElementById('chat-concerned').innerHTML || '',
+                    chatInteraction: document.getElementById('chat-interaction').innerHTML || '',
+                    chatWorks: document.getElementById('chat-works').innerHTML || '',
+                    chatObservations: document.getElementById('chat-observations').innerHTML || '',
+
+                    plans: getPlansData(),
+                    sessionMonths: getSessionMonthsData(),
+                    topics: getTopicsData()
+                };
+
+                docRef.set(data, { merge: true }).then(() => {
+                    document.getElementById('sync-status').innerText = "All changes saved";
+                }).catch((error) => {
+                    console.error("Error saving to Firebase: ", error);
+                    document.getElementById('sync-status').innerText = "Error saving changes";
+                });
+            }, 600);
+        }
+
+        let activePlanIndex = 0;
+
+        function getPlansData() {
+            const plans = [];
+            document.querySelectorAll('#planTabsContainer .tab-content').forEach((content, index) => {
+                plans.push({
+                    title: document.querySelectorAll('#planTabsHeader .tab-btn')[index].innerText,
+                    now: content.querySelector('.plan-now').innerHTML || '',
+                    work: content.querySelector('.plan-work').innerHTML || '',
+                    after: content.querySelector('.plan-after').innerHTML || '',
+                    next: content.querySelector('.plan-next').innerHTML || ''
+                });
+            });
+            return plans;
+        }
+
+        function renderPlans(plans = []) {
+            const headerWrapper = document.getElementById('planTabsHeader');
+            const containerWrapper = document.getElementById('planTabsContainer');
+
+            headerWrapper.innerHTML = '';
+            containerWrapper.innerHTML = '';
+
+            if (plans.length === 0) {
+                plans = [{ title: 'Cycle 1 (Weeks 1-4)', now: '', work: '', after: '', next: '' }];
+            }
+
+            if (activePlanIndex >= plans.length) activePlanIndex = plans.length - 1;
+
+            plans.forEach((p, index) => {
+                const item = document.createElement('div');
+                item.className = `tab-item ${index === activePlanIndex ? 'active' : ''}`;
+                
+                const btn = document.createElement('button');
+                btn.className = 'tab-btn';
+                btn.innerText = p.title || `Cycle ${index + 1}`;
+                btn.onclick = () => switchPlanTab(index);
+                item.appendChild(btn);
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'delete-tab-btn';
+                delBtn.innerHTML = '×';
+                delBtn.title = 'Delete Cycle';
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deletePlanCycle(index);
+                };
+                item.appendChild(delBtn);
+
+                headerWrapper.appendChild(item);
+
+                const content = document.createElement('div');
+                content.className = `tab-content ${index === activePlanIndex ? 'active' : ''}`;
+                content.innerHTML = `
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>What you can do now</th>
+                                    <th>What we will work on</th>
+                                    <th>What you will do after 4 weeks</th>
+                                    <th>After 4 weeks, we can start working on:</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td contenteditable="true" class="plan-now">${p.now || ''}</td>
+                                    <td contenteditable="true" class="plan-work">${p.work || ''}</td>
+                                    <td contenteditable="true" class="plan-after">${p.after || ''}</td>
+                                    <td contenteditable="true" class="plan-next">${p.next || ''}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                content.querySelectorAll('[contenteditable="true"]').forEach(el => {
+                    el.addEventListener('input', saveData);
+                    el.addEventListener('blur', saveData);
+                });
+                containerWrapper.appendChild(content);
+            });
+
+            const addBtn = document.createElement('button');
+            addBtn.className = 'add-tab-btn';
+            addBtn.innerText = '+ New 4-Week Cycle';
+            addBtn.onclick = addNewPlanCycle;
+            headerWrapper.appendChild(addBtn);
+        }
+
+        function switchPlanTab(index) {
+            activePlanIndex = index;
+            document.querySelectorAll('#planTabsHeader .tab-item').forEach((item, i) => {
+                item.classList.toggle('active', i === index);
+            });
+            document.querySelectorAll('#planTabsContainer .tab-content').forEach((c, i) => {
+                c.classList.toggle('active', i === index);
+            });
+        }
+
+        function addNewPlanCycle() {
+            const plans = getPlansData();
+            const nextCycleNum = plans.length + 1;
+            const startWeek = (plans.length * 4) + 1;
+            const endWeek = startWeek + 3;
+            
+            plans.push({
+                title: `Cycle ${nextCycleNum} (Weeks ${startWeek}-${endWeek})`,
+                now: '', work: '', after: '', next: ''
+            });
+            
+            activePlanIndex = plans.length - 1;
+            renderPlans(plans);
+            saveData();
+        }
+
+        function deletePlanCycle(index) {
+            const plans = getPlansData();
+            if (plans.length <= 1) {
+                alert("You must keep at least one cycle.");
+                return;
+            }
+            plans.splice(index, 1);
+            if (activePlanIndex >= plans.length) activePlanIndex = plans.length - 1;
+            renderPlans(plans);
+            saveData();
+        }
+
+        let activeSessionMonthIndex = 0;
+
+        function getSessionMonthsData() {
+            const months = [];
+            document.querySelectorAll('#sessionTabsContainer .tab-content').forEach((monthContent, mIndex) => {
+                const cards = [];
+                monthContent.querySelectorAll('.session-card-accordion').forEach(card => {
+                    cards.push({
+                        date: card.querySelector('.card-date').value || '',
+                        topic: card.querySelector('.card-topic').value || '',
+                        covered: card.querySelector('.card-covered').innerHTML || '',
+                        grammar: card.querySelector('.card-grammar').innerHTML || '',
+                        vocab: card.querySelector('.card-vocab').innerHTML || '',
+                        pronunciation: card.querySelector('.card-pronunciation').innerHTML || '',
+                        observations: card.querySelector('.card-observations').innerHTML || '',
+                        nextSession: card.querySelector('.card-next-session').innerHTML || '',
+                        studentNotes: card.querySelector('.card-student').innerHTML || '',
+                        isOpen: card.classList.contains('open')
+                    });
+                });
+                months.push({
+                    title: document.querySelectorAll('#sessionTabsHeader .tab-btn')[mIndex].innerText,
+                    cards: cards
+                });
+            });
+            return months;
+        }
+
+        function renderSessionMonths(months = []) {
+            const headerWrapper = document.getElementById('sessionTabsHeader');
+            const containerWrapper = document.getElementById('sessionTabsContainer');
+
+            headerWrapper.innerHTML = '';
+            containerWrapper.innerHTML = '';
+
+            if (months.length === 0) {
+                months = [{ title: 'Month 1', cards: [{date: '', topic: '', covered: '', grammar: '', vocab: '', pronunciation: '', observations: '', nextSession: '', studentNotes: '', isOpen: true}] }];
+            }
+
+            if (activeSessionMonthIndex >= months.length) activeSessionMonthIndex = months.length - 1;
+
+            months.forEach((m, mIndex) => {
+                const item = document.createElement('div');
+                item.className = `tab-item ${mIndex === activeSessionMonthIndex ? 'active' : ''}`;
+
+                const btn = document.createElement('button');
+                btn.className = 'tab-btn';
+                btn.innerText = m.title || `Month ${mIndex + 1}`;
+                btn.onclick = () => switchSessionMonthTab(mIndex);
+                item.appendChild(btn);
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'delete-tab-btn';
+                delBtn.innerHTML = '×';
+                delBtn.title = 'Delete Month Log';
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteSessionMonth(mIndex);
+                };
+                item.appendChild(delBtn);
+
+                headerWrapper.appendChild(item);
+
+                const content = document.createElement('div');
+                content.className = `tab-content ${mIndex === activeSessionMonthIndex ? 'active' : ''}`;
+                
+                const cardsContainer = document.createElement('div');
+                cardsContainer.className = 'cards-container';
+
+                if (!m.cards || m.cards.length === 0) {
+                    m.cards = [{date: '', topic: '', covered: '', grammar: '', vocab: '', pronunciation: '', observations: '', nextSession: '', studentNotes: '', isOpen: true}];
+                }
+
+                m.cards.forEach((c, index) => {
+                    const cardDiv = document.createElement('div');
+                    const isOpen = c.isOpen !== undefined ? c.isOpen : (index === 0);
+                    cardDiv.className = `session-card-accordion ${isOpen ? 'open' : ''}`;
+                    
+                    const titleText = (c.date || c.topic) ? `${c.date ? formatDate(c.date) : ''} ${c.topic ? '— ' + c.topic : ''}` : `New Session`;
+
+                    cardDiv.innerHTML = `
+                        <div class="session-accordion-header" onclick="toggleSessionAccordion(this)">
+                            <span class="card-title-text">${titleText}</span>
+                        </div>
+                        <div class="session-accordion-body">
+                            <label>Session Date:</label>
+                            <input type="date" class="card-date" value="${c.date || ''}" onchange="updateCardHeader(this)">
+                            
+                            <label>Topic:</label>
+                            <input type="text" class="card-topic" value="${c.topic || ''}" placeholder="e.g. Past Perfect" oninput="updateCardHeader(this)">
+                            
+                            <label>Covered in session:</label>
+                            <div class="card-covered" contenteditable="true" style="border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; background: var(--input-bg); min-height: 50px; outline: none; font-size: 0.88rem;">${c.covered || ''}</div>
+                            
+                            <label>Teacher Notes:</label>
+                            <div class="table-responsive">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 33.33%;">Grammar and Structure</th>
+                                            <th style="width: 33.33%;">Vocabulary</th>
+                                            <th style="width: 33.33%;">Pronunciation</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td contenteditable="true" class="card-grammar">${c.grammar || ''}</td>
+                                            <td contenteditable="true" class="card-vocab">${c.vocab || ''}</td>
+                                            <td contenteditable="true" class="card-pronunciation">${c.pronunciation || ''}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <label>Observations:</label>
+                            <div class="card-observations" contenteditable="true" style="border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; background: var(--input-bg); min-height: 50px; outline: none; font-size: 0.88rem;">${c.observations || ''}</div>
+
+                            <label>For next session:</label>
+                            <div class="card-next-session" contenteditable="true" style="border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; background: var(--input-bg); min-height: 50px; outline: none; font-size: 0.88rem;">${c.nextSession || ''}</div>
+
+                            <label>Student notes (optional):</label>
+                            <div class="card-student" contenteditable="true" style="border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; background: var(--input-bg); min-height: 50px; outline: none; font-size: 0.88rem;">${c.studentNotes || ''}</div>
+                            
+                            <button class="btn btn-delete" onclick="removeCard(this)">Delete Session</button>
+                        </div>
+                    `;
+                    cardDiv.querySelectorAll('[contenteditable="true"], input').forEach(el => {
+                        el.addEventListener('input', saveData);
+                        el.addEventListener('blur', saveData);
+                    });
+                    cardsContainer.appendChild(cardDiv);
+                });
+
+                content.appendChild(cardsContainer);
+
+                const addCardBtn = document.createElement('button');
+                addCardBtn.className = 'btn';
+                addCardBtn.style.marginTop = '16px';
+                addCardBtn.innerText = 'Adicionar Sessão';
+                addCardBtn.onclick = () => addCardToCurrentMonth(cardsContainer);
+                content.appendChild(addCardBtn);
+
+                containerWrapper.appendChild(content);
+            });
+
+            const addMonthBtn = document.createElement('button');
+            addMonthBtn.className = 'add-tab-btn';
+            addMonthBtn.innerText = '+ New Month Log';
+            addMonthBtn.onclick = addNewSessionMonth;
+            headerWrapper.appendChild(addMonthBtn);
+        }
+
+        function switchSessionMonthTab(index) {
+            activeSessionMonthIndex = index;
+            document.querySelectorAll('#sessionTabsHeader .tab-item').forEach((item, i) => {
+                item.classList.toggle('active', i === index);
+            });
+            document.querySelectorAll('#sessionTabsContainer .tab-content').forEach((c, i) => {
+                c.classList.toggle('active', i === index);
+            });
+        }
+
+        function addNewSessionMonth() {
+            const months = getSessionMonthsData();
+            months.push({
+                title: `Month ${months.length + 1}`,
+                cards: [{date: '', topic: '', covered: '', grammar: '', vocab: '', pronunciation: '', observations: '', nextSession: '', studentNotes: '', isOpen: true}]
+            });
+            activeSessionMonthIndex = months.length - 1;
+            renderSessionMonths(months);
+            saveData();
+        }
+
+        function deleteSessionMonth(index) {
+            const months = getSessionMonthsData();
+            if (months.length <= 1) {
+                alert("You must keep at least one month log.");
+                return;
+            }
+            months.splice(index, 1);
+            if (activeSessionMonthIndex >= months.length) activeSessionMonthIndex = months.length - 1;
+            renderSessionMonths(months);
+            saveData();
+        }
+
+        function addCardToCurrentMonth(wrapper) {
+            wrapper.querySelectorAll('.session-card-accordion').forEach(c => c.classList.remove('open'));
+
+            const div = document.createElement('div');
+            div.className = 'session-card-accordion open';
+            div.innerHTML = `
+                <div class="session-accordion-header" onclick="toggleSessionAccordion(this)">
+                    <span class="card-title-text">New Session</span>
+                </div>
+                <div class="session-accordion-body">
+                    <label>Session Date:</label>
+                    <input type="date" class="card-date" onchange="updateCardHeader(this)">
+                    
+                    <label>Topic:</label>
+                    <input type="text" class="card-topic" placeholder="e.g. Past Perfect" oninput="updateCardHeader(this)">
+                    
+                    <label>Covered in session:</label>
+                    <div class="card-covered" contenteditable="true" style="border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; background: var(--input-bg); min-height: 50px; outline: none; font-size: 0.88rem;"></div>
+                    
+                    <label>Teacher Notes:</label>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 33.33%;">Grammar and Structure</th>
+                                    <th style="width: 33.33%;">Vocabulary</th>
+                                    <th style="width: 33.33%;">Pronunciation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td contenteditable="true" class="card-grammar"></td>
+                                    <td contenteditable="true" class="card-vocab"></td>
+                                    <td contenteditable="true" class="card-pronunciation"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <label>Observations:</label>
+                    <div class="card-observations" contenteditable="true" style="border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; background: var(--input-bg); min-height: 50px; outline: none; font-size: 0.88rem;"></div>
+
+                    <label>For next session:</label>
+                    <div class="card-next-session" contenteditable="true" style="border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; background: var(--input-bg); min-height: 50px; outline: none; font-size: 0.88rem;"></div>
+
+                    <label>Student notes (optional):</label>
+                    <div class="card-student" contenteditable="true" style="border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; background: var(--input-bg); min-height: 50px; outline: none; font-size: 0.88rem;"></div>
+                    
+                    <button class="btn btn-delete" onclick="removeCard(this)">Delete Session</button>
+                </div>
+            `;
+            div.querySelectorAll('[contenteditable="true"], input').forEach(el => {
+                el.addEventListener('input', saveData);
+                el.addEventListener('blur', saveData);
+            });
+            wrapper.prepend(div);
+            saveData();
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const parts = dateStr.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return dateStr;
+        }
+
+        function updateCardHeader(input) {
+            const card = input.closest('.session-card-accordion');
+            const dateVal = card.querySelector('.card-date').value;
+            const topicVal = card.querySelector('.card-topic').value;
+            const titleSpan = card.querySelector('.card-title-text');
+            
+            const titleText = (dateVal || topicVal) ? `${dateVal ? formatDate(dateVal) : ''} ${topicVal ? '— ' + topicVal : ''}` : `New Session`;
+            titleSpan.innerText = titleText;
+        }
+
+        function removeCard(btn) {
+            btn.closest('.session-card-accordion').remove();
+            saveData();
+        }
+
+        function getTopicsData() {
+            const topics = [];
+            document.querySelectorAll('.topic-item').forEach(item => {
+                topics.push({
+                    text: item.querySelector('span').innerText || '',
+                    completed: item.querySelector('input').checked || false
+                });
+            });
+            return topics;
+        }
+
+        function renderTopics(topics = []) {
+            const activeList = document.getElementById('topics-list');
+            const completedList = document.getElementById('completed-topics-list');
+            
+            activeList.innerHTML = '';
+            completedList.innerHTML = '';
+
+            let completedCount = 0;
+
+            topics.forEach((t) => {
+                const div = document.createElement('div');
+                div.className = `topic-item ${t.completed ? 'completed' : ''}`;
+                div.innerHTML = `
+                    <div class="topic-content">
+                        <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="toggleTopic(this)">
+                        <span>${t.text}</span>
+                    </div>
+                    <button class="delete-topic-btn" onclick="deleteTopic(this)" title="Delete topic">×</button>
+                `;
+
+                if (t.completed) {
+                    completedList.appendChild(div);
+                    completedCount++;
+                } else {
+                    activeList.appendChild(div);
+                }
+            });
+
+            document.getElementById('completed-count').innerText = completedCount;
+
+            if (activeList.children.length === 0) {
+                activeList.innerHTML = `<div class="empty-msg">No active topics. Add one below!</div>`;
+            }
+        }
+
+        function addTopic() {
+            const input = document.getElementById('new-topic-input');
+            if (!input.value.trim()) return;
+            
+            const activeList = document.getElementById('topics-list');
+            if (activeList.querySelector('.empty-msg')) {
+                activeList.innerHTML = '';
+            }
+
+            const div = document.createElement('div');
+            div.className = 'topic-item';
+            div.innerHTML = `
+                <div class="topic-content">
+                    <input type="checkbox" onchange="toggleTopic(this)">
+                    <span>${input.value}</span>
+                </div>
+                <button class="delete-topic-btn" onclick="deleteTopic(this)" title="Delete topic">×</button>
+            `;
+            activeList.appendChild(div);
+            input.value = '';
+            saveData();
+        }
+
+        function toggleTopic(checkbox) {
+            saveData();
+        }
+
+        function deleteTopic(btn) {
+            btn.closest('.topic-item').remove();
+            saveData();
+        }
+
+        docRef.onSnapshot((doc) => {
+            if (doc.exists) {
+                const data = doc.data();
+                const activeEl = document.activeElement;
+                
+                if (activeEl !== document.getElementById('field-student')) document.getElementById('field-student').value = data.student || '';
+                if (activeEl !== document.getElementById('field-datetime')) document.getElementById('field-datetime').value = data.datetime || '';
+                if (activeEl !== document.getElementById('field-start')) document.getElementById('field-start').value = data.start || '';
+                if (activeEl !== document.getElementById('field-end')) document.getElementById('field-end').value = data.end || '';
+                
+                if (activeEl !== linkDiv) {
+                    const savedLink = data.link || '';
+                    linkDiv.setAttribute('data-raw-url', savedLink);
+                    if (savedLink.trim() !== '') {
+                        let formattedUrl = savedLink.trim();
+                        if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+                            formattedUrl = 'https://' + formattedUrl;
+                        }
+                        linkDiv.innerHTML = `<a href="${formattedUrl}" target="_blank">${savedLink}</a>`;
+                    } else {
+                        linkDiv.innerHTML = `<span style="color: #999; font-style: italic;">Paste or type meeting link here...</span>`;
+                    }
+                }
+
+                if (activeEl !== document.getElementById('chat-goals')) document.getElementById('chat-goals').innerHTML = data.chatGoals || '';
+                if (activeEl !== document.getElementById('chat-concerned')) document.getElementById('chat-concerned').innerHTML = data.chatConcerned || '';
+                if (activeEl !== document.getElementById('chat-interaction')) document.getElementById('chat-interaction').innerHTML = data.chatInteraction || '';
+                if (activeEl !== document.getElementById('chat-works')) document.getElementById('chat-works').innerHTML = data.chatWorks || '';
+                if (activeEl !== document.getElementById('chat-observations')) document.getElementById('chat-observations').innerHTML = data.chatObservations || '';
+
+                if (!activeEl.closest('#planTabsContainer')) {
+                    renderPlans(data.plans || []);
+                }
+
+                if (!activeEl.closest('#sessionTabsContainer')) {
+                    renderSessionMonths(data.sessionMonths || []);
+                }
+                
+                if (data.topics && !document.activeElement.closest('.post-it')) {
+                    renderTopics(data.topics);
+                }
+                
+                document.getElementById('sync-status').innerText = "All changes saved";
+            } else {
+                renderPlans([]);
+                renderSessionMonths([]);
+                renderTopics([]);
+            }
+        }, (error) => {
+            console.error("Firebase Snapshot Error:", error);
+            document.getElementById('sync-status').innerText = "Error saving changes";
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('input, [contenteditable="true"]:not(#field-link)').forEach(el => {
+                el.addEventListener('input', saveData);
+                el.addEventListener('blur', saveData);
+            });
+        });
+    </script>
+</body>
+</html>
