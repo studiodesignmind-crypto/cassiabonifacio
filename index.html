@@ -801,7 +801,7 @@
                 </div>
                 <div class="clean-field full-width">
                     <label>Call link:</label>
-                    <div id="field-link" class="link-container" contenteditable="true" data-placeholder="Paste or type meeting link here..."></div>
+                    <div id="field-link" class="link-container" contenteditable="true" data-placeholder="Paste or type meeting link here..."><span style="color: #999; font-style: italic;">Paste or type meeting link here...</span></div>
                 </div>
             </div>
 
@@ -899,6 +899,12 @@
     </div>
 
     <script>
+        // =========================================================================
+        // 1. NOME DO ALUNO NO FIREBASE (MUDE AQUI PARA CADA ALUNO NOVO)
+        // Exemplo: "aluna_cassia", "aluno_joao", "aluna_maria"
+        // =========================================================================
+        const STUDENT_DOCUMENT_NAME = "aluna_cassia"; 
+
         const firebaseConfig = {
             apiKey: "AIzaSyCqGSUBBkQzLhG7BAHPFDhKUD9wAIN5wVg",
             authDomain: "julianawiiraenglishlessons.firebaseapp.com",
@@ -910,7 +916,7 @@
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const docRef = db.collection("tracker").doc("aluna_cassia");
+        const docRef = db.collection("tracker").doc(STUDENT_DOCUMENT_NAME);
 
         function toggleAccordion(header) {
             const accordion = header.parentElement;
@@ -1055,7 +1061,7 @@
             headerWrapper.innerHTML = '';
             containerWrapper.innerHTML = '';
 
-            if (plans.length === 0) {
+            if (!plans || plans.length === 0) {
                 plans = [{ title: 'Cycle 1 (Weeks 1-4)', now: '', work: '', after: '', next: '' }];
             }
 
@@ -1194,7 +1200,7 @@
             headerWrapper.innerHTML = '';
             containerWrapper.innerHTML = '';
 
-            if (months.length === 0) {
+            if (!months || months.length === 0) {
                 months = [{ title: 'Month 1', cards: [{date: '', topic: '', covered: '', grammar: '', vocab: '', pronunciation: '', observations: '', nextSession: '', studentNotes: '', isOpen: true}] }];
             }
 
@@ -1445,24 +1451,26 @@
 
             let completedCount = 0;
 
-            topics.forEach((t) => {
-                const div = document.createElement('div');
-                div.className = `topic-item ${t.completed ? 'completed' : ''}`;
-                div.innerHTML = `
-                    <div class="topic-content">
-                        <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="toggleTopic(this)">
-                        <span>${t.text}</span>
-                    </div>
-                    <button class="delete-topic-btn" onclick="deleteTopic(this)" title="Delete topic">×</button>
-                `;
+            if (topics && topics.length > 0) {
+                topics.forEach((t) => {
+                    const div = document.createElement('div');
+                    div.className = `topic-item ${t.completed ? 'completed' : ''}`;
+                    div.innerHTML = `
+                        <div class="topic-content">
+                            <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="toggleTopic(this)">
+                            <span>${t.text}</span>
+                        </div>
+                        <button class="delete-topic-btn" onclick="deleteTopic(this)" title="Delete topic">×</button>
+                    `;
 
-                if (t.completed) {
-                    completedList.appendChild(div);
-                    completedCount++;
-                } else {
-                    activeList.appendChild(div);
-                }
-            });
+                    if (t.completed) {
+                        completedList.appendChild(div);
+                        completedCount++;
+                    } else {
+                        activeList.appendChild(div);
+                    }
+                });
+            }
 
             document.getElementById('completed-count').innerText = completedCount;
 
@@ -1503,6 +1511,26 @@
             saveData();
         }
 
+        function clearUI() {
+            document.getElementById('field-student').value = '';
+            document.getElementById('field-datetime').value = '';
+            document.getElementById('field-start').value = '';
+            document.getElementById('field-end').value = '';
+            
+            linkDiv.setAttribute('data-raw-url', '');
+            linkDiv.innerHTML = `<span style="color: #999; font-style: italic;">Paste or type meeting link here...</span>`;
+
+            document.getElementById('chat-goals').innerHTML = '';
+            document.getElementById('chat-concerned').innerHTML = '';
+            document.getElementById('chat-interaction').innerHTML = '';
+            document.getElementById('chat-works').innerHTML = '';
+            document.getElementById('chat-observations').innerHTML = '';
+
+            renderPlans([]);
+            renderSessionMonths([]);
+            renderTopics([]);
+        }
+
         docRef.onSnapshot((doc) => {
             if (doc.exists) {
                 const data = doc.data();
@@ -1541,15 +1569,15 @@
                     renderSessionMonths(data.sessionMonths || []);
                 }
                 
-                if (data.topics && !document.activeElement.closest('.post-it')) {
-                    renderTopics(data.topics);
+                if (!document.activeElement.closest('.post-it')) {
+                    renderTopics(data.topics || []);
                 }
                 
                 document.getElementById('sync-status').innerText = "All changes saved";
             } else {
-                renderPlans([]);
-                renderSessionMonths([]);
-                renderTopics([]);
+                // Se o documento é novo no Firebase, inicia TUDO 100% LIMPO
+                clearUI();
+                document.getElementById('sync-status').innerText = "New student log created (Ready)";
             }
         }, (error) => {
             console.error("Firebase Snapshot Error:", error);
